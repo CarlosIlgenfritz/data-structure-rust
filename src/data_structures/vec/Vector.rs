@@ -33,13 +33,7 @@ pub struct Vector<T> {
     capacity: usize, // allocated space
 }
 
-impl<T> Vector<T> {
-    /// Search for the element traversing the entire array, returns the index of the element
-    /// Time complexity - O(n)
-    /// Space complexity - O(1)
-    pub fn linear_search(&self, target: T) -> Option<usize> {
-
-    }
+impl<T: PartialEq> Vector<T> {
 
     /// Creates a new empty Vector
     pub fn new() -> Self {
@@ -181,6 +175,24 @@ impl<T> Vector<T> {
             None
         }
     }
+
+    /// Search for the element traversing the entire array, returns the index of the element
+    /// Time complexity - O(n)
+    /// Space complexity - O(1)
+    pub fn linear_search(&self, target: T) -> Option<usize> {
+        for i in 0..self.len{
+            unsafe {
+                let position = self.pointer.add(i);
+                let element = ptr::read(position);
+                if target == element {
+                    return Some(i)
+                }
+            }
+        }
+        None
+    }
+
+
 }
 
 /// Implement Drop to free memory when Vector goes out of scope
@@ -326,18 +338,82 @@ mod tests {
 
     #[test]
     fn should_find_element_linear_search(){
+        let mut vec: Vector<i32> = Vector::with_capacity(5);
+        vec.push(1);
+        vec.push(2);
+        vec.push(3);
 
-    }
+        let index = vec.linear_search(3);
 
-    #[test]
-    fn should_return_none_if_no_match_linear_search(){
-        Elemento no início
-        Elemento no fim
-        Elemento no meio
+        assert_eq!(index.unwrap(), 2)
     }
 
     #[test]
     fn should_return_none_if_array_is_empty_linear_search(){
+        let vec: Vector<i32> = Vector::with_capacity(5);
 
+        let result = vec.linear_search(1);
+
+        assert_eq!(result, None)
+    }
+
+    #[test]
+    fn should_return_none_if_no_match_linear_search_with_elements(){
+        let mut vec: Vector<i32> = Vector::with_capacity(5);
+
+        vec.push(1);
+        vec.push(2);
+        vec.push(3);
+
+        let index = vec.linear_search(4);
+        assert_eq!(index, None)
+    }
+
+    #[test]
+    fn should_find_element_at_beginning_linear_search(){
+        let mut vec: Vector<i32> = Vector::with_capacity(5);
+        vec.push(10);
+        vec.push(20);
+        vec.push(30);
+
+        let index = vec.linear_search(10);
+
+        assert_eq!(index.unwrap(), 0)
+    }
+
+    #[test]
+    fn should_find_element_at_middle_linear_search(){
+        let mut vec: Vector<i32> = Vector::with_capacity(5);
+        vec.push(10);
+        vec.push(20);
+        vec.push(30);
+
+        let index = vec.linear_search(20);
+
+        assert_eq!(index.unwrap(), 1)
+    }
+
+    #[test]
+    fn should_return_first_occurrence_linear_search(){
+        let mut vec: Vector<i32> = Vector::with_capacity(5);
+        vec.push(5);
+        vec.push(10);
+        vec.push(5);
+        vec.push(15);
+        vec.push(5);
+
+        let index = vec.linear_search(5);
+
+        assert_eq!(index.unwrap(), 0)
+    }
+
+    #[test]
+    fn should_find_single_element_linear_search(){
+        let mut vec: Vector<i32> = Vector::with_capacity(1);
+        vec.push(42);
+
+        let index = vec.linear_search(42);
+
+        assert_eq!(index.unwrap(), 0)
     }
 }

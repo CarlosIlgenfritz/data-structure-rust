@@ -33,8 +33,7 @@ pub struct Vector<T> {
     capacity: usize, // allocated space
 }
 
-impl<T: PartialEq> Vector<T> {
-
+impl<T: PartialEq + PartialOrd + Clone> Vector<T> {
     /// Creates a new empty Vector
     pub fn new() -> Self {
         Vector {
@@ -165,13 +164,13 @@ impl<T: PartialEq> Vector<T> {
     }
 
     /// Modify element based in the index
-    pub fn set(&mut self,  index: usize, value: T,) -> Option<T> {
-        if index < self.len  {
+    pub fn set(&mut self, index: usize, value: T) -> Option<T> {
+        if index < self.len {
             unsafe {
                 let position = self.pointer.add(index);
                 Some(position.replace(value))
             }
-        }else {
+        } else {
             None
         }
     }
@@ -180,28 +179,73 @@ impl<T: PartialEq> Vector<T> {
     /// Time complexity - O(n)
     /// Space complexity - O(1)
     pub fn linear_search(&self, target: T) -> Option<usize> {
-        for i in 0..self.len{
+        for i in 0..self.len {
             unsafe {
                 let position = self.pointer.add(i);
                 let element = ptr::read(position);
                 if target == element {
-                    return Some(i)
+                    return Some(i);
                 }
             }
         }
         None
     }
 
+    /// Search for the element dividing the Vector in half, if element not found divide again.
+    /// Array needs to be ordered.
+    /// Vector needs to be ordenated
+    /// Time complexity - O( log N)
+    /// Space complexity - O(1)
+    pub fn binary_search(&self, target: &T) -> Option<usize> {
+        if self.len == 0 {
+            return None;
+        }
+        let mut left = 0;
+        let mut right = self.len();
 
+        while left <= right {
+            let middle = (left + right) / 2;
+            match self.get(middle) {
+                Some(element) if element == target => return Some(middle),
+                Some(element) if element > target => {
+                    if middle == 0 {
+                        break;
+                    }
+                    right = middle - 1;
+                }
+                Some(_) => left = middle + 1,
+                None => break,
+            }
+        }
+        None
+    }
+
+    ///Invert array in place.
+    /// Time complexity - O(n)
+    /// Space complexity - O(1)
+    pub fn invert_array_in_place(&mut self) {
+        if self.len == 0 || self.len == 1 {
+            return;
+        }
+        let mut left_index = 0;
+        let mut right_index = self.len() - 1;
+
+        while left_index <= right_index {
+            let auxiliar = self.get(right_index).unwrap().clone();
+            self.set(right_index, self.get(left_index).unwrap().clone());
+            self.set(left_index, auxiliar);
+            left_index = left_index + 1;
+            right_index = right_index - 1;
+        }
+    }
 }
 
 /// Implement Drop to free memory when Vector goes out of scope
 impl<T> Drop for Vector<T> {
     fn drop(&mut self) {
         if self.capacity != 0 && !self.pointer.is_null() {
-            let layout =
-                Layout::from_size_align(self.capacity * mem::size_of::<T>(), mem::align_of::<T>())
-                    .expect("Invalid layout");
+            let layout = Layout::from_size_align(self.capacity * size_of::<T>(), align_of::<T>())
+                .expect("Invalid layout");
             unsafe {
                 std::alloc::dealloc(self.pointer as *mut u8, layout);
             }
@@ -319,7 +363,7 @@ mod tests {
     }
 
     #[test]
-    fn should_set_valid(){
+    fn should_set_valid() {
         let mut vec: Vector<i32> = Vector::with_capacity(5);
         vec.push(1);
         vec.push(2);
@@ -330,14 +374,14 @@ mod tests {
     }
 
     #[test]
-    fn should_set_invalid(){
+    fn should_set_invalid() {
         let mut vec: Vector<i32> = Vector::with_capacity(5);
 
         assert_eq!(vec.set(1, 100), None)
     }
 
     #[test]
-    fn should_find_element_linear_search(){
+    fn should_find_element_linear_search() {
         let mut vec: Vector<i32> = Vector::with_capacity(5);
         vec.push(1);
         vec.push(2);
@@ -349,7 +393,7 @@ mod tests {
     }
 
     #[test]
-    fn should_return_none_if_array_is_empty_linear_search(){
+    fn should_return_none_if_array_is_empty_linear_search() {
         let vec: Vector<i32> = Vector::with_capacity(5);
 
         let result = vec.linear_search(1);
@@ -358,7 +402,7 @@ mod tests {
     }
 
     #[test]
-    fn should_return_none_if_no_match_linear_search_with_elements(){
+    fn should_return_none_if_no_match_linear_search_with_elements() {
         let mut vec: Vector<i32> = Vector::with_capacity(5);
 
         vec.push(1);
@@ -370,7 +414,7 @@ mod tests {
     }
 
     #[test]
-    fn should_find_element_at_beginning_linear_search(){
+    fn should_find_element_at_beginning_linear_search() {
         let mut vec: Vector<i32> = Vector::with_capacity(5);
         vec.push(10);
         vec.push(20);
@@ -382,7 +426,7 @@ mod tests {
     }
 
     #[test]
-    fn should_find_element_at_middle_linear_search(){
+    fn should_find_element_at_middle_linear_search() {
         let mut vec: Vector<i32> = Vector::with_capacity(5);
         vec.push(10);
         vec.push(20);
@@ -394,7 +438,7 @@ mod tests {
     }
 
     #[test]
-    fn should_return_first_occurrence_linear_search(){
+    fn should_return_first_occurrence_linear_search() {
         let mut vec: Vector<i32> = Vector::with_capacity(5);
         vec.push(5);
         vec.push(10);
@@ -408,12 +452,166 @@ mod tests {
     }
 
     #[test]
-    fn should_find_single_element_linear_search(){
+    fn should_find_single_element_linear_search() {
         let mut vec: Vector<i32> = Vector::with_capacity(1);
         vec.push(42);
 
         let index = vec.linear_search(42);
 
         assert_eq!(index.unwrap(), 0)
+    }
+
+    #[test]
+    fn should_find_element_binary_search() {
+        let mut vec: Vector<i32> = Vector::with_capacity(5);
+        vec.push(1);
+        vec.push(5);
+        vec.push(10);
+        vec.push(15);
+
+        let index = vec.binary_search(&10);
+
+        assert_eq!(index.unwrap(), 2)
+    }
+
+    #[test]
+    fn should_work_correctly_with_odd_array() {
+        let mut vec: Vector<i32> = Vector::with_capacity(5);
+        vec.push(1);
+        vec.push(2);
+        vec.push(3);
+
+        let index = vec.binary_search(&2);
+
+        assert_eq!(index.unwrap(), 1)
+    }
+    #[test]
+    fn should_return_none_for_empty_array() {
+        let vec: Vector<i32> = Vector::new();
+
+        assert_eq!(vec.binary_search(&1), None);
+    }
+
+    #[test]
+    fn should_return_when_target_is_in_first_position() {
+        let mut vec: Vector<i32> = Vector::with_capacity(5);
+        vec.push(1);
+        vec.push(2);
+        vec.push(3);
+
+        let index = vec.binary_search(&1);
+
+        assert_eq!(index.unwrap(), 0)
+    }
+
+    #[test]
+    fn should_return_when_target_is_in_last_position() {
+        let mut vec: Vector<i32> = Vector::with_capacity(5);
+        vec.push(1);
+        vec.push(2);
+        vec.push(3);
+        vec.push(4);
+        vec.push(5);
+
+        let index = vec.binary_search(&5);
+
+        assert_eq!(index.unwrap(), 4)
+    }
+
+    #[test]
+    fn should_return_none_when_target_is_not_present_in_array() {
+        let mut vec: Vector<i32> = Vector::with_capacity(5);
+        vec.push(1);
+        vec.push(2);
+        vec.push(3);
+        vec.push(4);
+        vec.push(5);
+
+        let index = vec.binary_search(&6);
+
+        assert_eq!(index, None)
+    }
+
+    #[test]
+    fn should_invert_array_in_place_with_odd_elements() {
+        let mut vec: Vector<i32> = Vector::with_capacity(5);
+        vec.push(1);
+        vec.push(2);
+        vec.push(3);
+        vec.push(4);
+        vec.push(5);
+
+        vec.invert_array_in_place();
+
+        assert_eq!(vec.get(0), Some(&5));
+        assert_eq!(vec.get(1), Some(&4));
+        assert_eq!(vec.get(2), Some(&3));
+        assert_eq!(vec.get(3), Some(&2));
+        assert_eq!(vec.get(4), Some(&1));
+    }
+
+    #[test]
+    fn should_invert_array_in_place_with_pair_elements() {
+        let mut vec: Vector<i32> = Vector::with_capacity(5);
+        vec.push(1);
+        vec.push(2);
+        vec.push(3);
+        vec.push(4);
+        vec.push(5);
+        vec.push(6);
+
+        vec.invert_array_in_place();
+
+        assert_eq!(vec.get(0), Some(&6));
+        assert_eq!(vec.get(1), Some(&5));
+        assert_eq!(vec.get(2), Some(&4));
+        assert_eq!(vec.get(3), Some(&3));
+        assert_eq!(vec.get(4), Some(&2));
+        assert_eq!(vec.get(5), Some(&1));
+    }
+
+    #[test]
+    fn should_invert_array_in_place_with_empty_array() {
+        let mut vec: Vector<i32> = Vector::with_capacity(0);
+        vec.invert_array_in_place();
+        assert_eq!(vec.len(), 0);
+    }
+
+    #[test]
+    fn should_invert_array_in_place_with_single_element() {
+        let mut vec: Vector<i32> = Vector::with_capacity(1);
+        vec.push(1);
+
+        vec.invert_array_in_place();
+
+        assert_eq!(vec.get(0), Some(&1));
+    }
+
+    #[test]
+    fn should_invert_array_in_place_with_two_elements() {
+        let mut vec: Vector<i32> = Vector::with_capacity(2);
+        vec.push(1);
+        vec.push(2);
+
+        vec.invert_array_in_place();
+
+        assert_eq!(vec.get(0), Some(&2));
+        assert_eq!(vec.get(1), Some(&1));
+    }
+
+    #[test]
+    fn should_invert_array_in_place_with_repeated_elements() {
+        let mut vec: Vector<i32> = Vector::with_capacity(4);
+        vec.push(1);
+        vec.push(1);
+        vec.push(1);
+        vec.push(1);
+
+        vec.invert_array_in_place();
+
+        assert_eq!(vec.get(0), Some(&1));
+        assert_eq!(vec.get(1), Some(&1));
+        assert_eq!(vec.get(2), Some(&1));
+        assert_eq!(vec.get(3), Some(&1));
     }
 }
